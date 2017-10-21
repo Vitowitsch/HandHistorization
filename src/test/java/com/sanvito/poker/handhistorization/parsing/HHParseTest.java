@@ -1,6 +1,9 @@
 package com.sanvito.poker.handhistorization.parsing;
 
+import java.io.ByteArrayInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -13,11 +16,19 @@ import static org.junit.Assert.*;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import com.sanvito.poker.handhistorization.equity.Equity;
 import com.sanvito.pokereval.config.SpringConfig;
 import com.sanvito.pokereval.controller.DecisionLogic;
 import com.sanvito.pokereval.controller.DecisionLogicImpl;
 
 public class HHParseTest {
+
+	HHParser parser = new HHParser("StartingSmall");
+
+	@BeforeClass
+	public static void init() {
+		SpringConfig c = new SpringConfig();
+	}
 
 	private DecisionLogic dLog = new DecisionLogicImpl();
 	// (1) The estimated win probability, p,
@@ -91,6 +102,30 @@ public class HHParseTest {
 			"Seat 1: FreddyLele (button) (small blind) mucked [Td 3d 9s 3c]\r\n" + //
 			"Seat 2: StartingSmall (big blind) showed [2h 5c 7c 4s] and won ($2.79) with a full house, Fives full of Sevens\r\n";
 
+	String hand3 = "PokerStars Zoom Hand #131026071422:  Omaha Pot Limit ($0.25/$0.50) - 2015/02/23 16:26:05 ET\r\n" + //
+			"Table 'Chi Sagittarii' 2-max Seat #1 is the button\r\n" + //
+			"Seat 1: StartingSmall ($20.38 in chips) \r\n" + //
+			"Seat 2: Lichu348 ($51.36 in chips) \r\n" + //
+			"StartingSmall: posts small blind $0.25\r\n" + //
+			"Lichu348: posts big blind $0.50\r\n" + //
+			"*** HOLE CARDS ***\r\n" + //
+			"Dealt to StartingSmall [6d Qs Jc As]\r\n" + //
+			"StartingSmall: raises $1 to $1.50\r\n" + //
+			"Lichu348: folds \r\n" + //
+			"Uncalled bet ($1) returned to StartingSmall\r\n" + //
+			"StartingSmall collected $1 from pot\r\n" + //
+			"StartingSmall: doesn't show hand \r\n" + //
+			"*** SUMMARY ***\r\n" + //
+			"Total pot $1 | Rake $0 \r\n" + //
+			"Seat 1: StartingSmall (button) (small blind) collected ($1)\r\n" + //
+			"Seat 2: Lichu348 (big blind) folded before Flop\r\n";
+
+	@Test
+	public void parseHand3() throws FileNotFoundException, URISyntaxException {
+		String holeCards = parser.holeCards(hand3);
+		assertEquals("6d Qs Jc As", holeCards);
+	}
+
 	@Test
 	public void parse() throws IOException {
 		String s1 = "2015-01-06 11:33:03 b.s.d.task [INFO] Emitting: adEventToRequestsBolt __ack_ack [-6722594615019711369 -1335723027906100557]";
@@ -111,50 +146,33 @@ public class HHParseTest {
 
 	@Test
 	public void getHoleCars() {
-		String holeCards = HHParser.holeCards(hand1);
+		String holeCards = parser.holeCards(hand1);
 		assertEquals("8d Ts 7h 2c", holeCards);
 	}
 
 	@Test
 	public void parse2Hands() {
-		String hands = hand1 + hand2;
-		Stream<String> scannedBlocks = HHParser.scan(hands);
-		List<String> holdCards = scannedBlocks.map(h -> HHParser.holeCards(h))
+		// Stream<String> hands = Arrays.asList(new String[] { hand1, hand2
+		// }).stream();
+		Stream<String> scannedBlocks = parser.scan(new ByteArrayInputStream((hand1 + hand2).getBytes()));
+		List<String> holdCards = scannedBlocks.map(h -> parser.holeCards(h))
 				.collect(Collectors.toCollection(ArrayList::new));
 		assertTrue("8d Ts 7h 2c".equals(holdCards.get(0)));
 		assertTrue("2h 5c 7c 4s".equals(holdCards.get(1)));
 	}
 
-	private String formatHands(String[] hands) {
-		String handsStr = "";
-		for (String hand : hands) {
-			if (!handsStr.isEmpty()) {
-				handsStr += ":";
-			}
-			handsStr += hand;
-		}
-		return handsStr;
-	}
-
-	@BeforeClass
-	public static void init() {
-		SpringConfig c = new SpringConfig();
-	}
-
 	@Test
 	public void testDecisionLogicImport() {
-		Map<String, Double> eq = dLog.getEq("", "", formatHands(new String[] { "8d8h", "9h9d" }));
+		Map<String, Double> eq = dLog.getEq("", "", Equity.formatHands(new String[] { "8d8h", "9h9d" }));
 		assertTrue(eq.get("8d8h") < eq.get("9h9d"));
 	}
 
 	@Test
 	public void hand2Object() {
-		String hands = hand1 + hand2;
-		Stream<String> handsStream = HHParser.scan(hands);
+		Stream<String> handsStream = parser.scan(new ByteArrayInputStream((hand1 + hand2).getBytes()));
 		List<Hand> handList = new ArrayList<>();
 		handsStream.sequential().forEach(h -> handList.add(new Hand("", h)));
 		System.out.println(handList.get(0).getFlopAction());
-
 		// List<String> holdCards = scannedBlocks.map(h ->
 		// HHParser.holeCards(h))
 		// .collect(Collectors.toCollection(ArrayList::new));

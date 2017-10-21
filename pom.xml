@@ -20,7 +20,7 @@
 		<dependency>
 			<groupId>com.sanvito.statisticservice</groupId>
 			<artifactId>PokerEvalService</artifactId>
-			<version>0.0.1-SNAPSHOT</version>
+			<version>LATEST</version>
 		</dependency>
 
 
